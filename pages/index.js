@@ -1,38 +1,44 @@
 import Head from 'next/head'
-import {promises as fs} from 'fs'
-import path from 'path'
-import Papa from 'papaparse'
+import { convertDayNumberToWord, formatTemp } from '../components/utils'
 
-export async function getStaticProps() {
-    const filePath = path.join(process.cwd(), 'data/transactions.csv');
-    const fileContents = await fs.readFile(filePath, 'utf8');
-    return {
-        props: {
-            rawFileContents: fileContents,
-            transactions: Papa.parse(fileContents, {
-                header: true,
-                delimiter: ",",
-                transform: (value, columnName) => {
-                    if (columnName === "Amount") {
-                        return parseFloat(value);
-                    }
+export async function getServerSideProps() {
+    // https://api.openweathermap.org/data/2.5/onecall?lat=51.5013715344381&lon=-0.14184897815474495&appid=f3d178f07e3018dd1eab495368872fc9&units=metric&exclude=hourly,minutely
 
-                    return value;
-                }
-            }).data
-        }
+    const baseURL = "https://api.openweathermap.org/data/2.5/onecall";
+    const searchParams = new URLSearchParams();
+
+    const apiOptions = {
+        lat: "51.5013715344381",
+        lon: "-0.14184897815474495",
+        apiKey: "f3d178f07e3018dd1eab495368872fc9",
+        units: "metric",
+        exclude: "hourly,minutely"
     }
+
+    for (const [key, value] of Object.entries(apiOptions)) {
+        searchParams.set(key, value);
+    }
+
+    const apiRoute = `${baseURL}?${searchParams.toString()}`;
+    console.log(apiRoute);
+
+    // Fetch data from external API
+    const res = await fetch(apiRoute);
+    const weather = await res.json();
+
+    // Pass data to the page via props
+    return { props: { weather } }
 }
 
-export default function Home({transactions, rawFileContents}) {
-    console.log(transactions, rawFileContents);
+export default function Home({ weather }) {
+    console.log(weather);
     return (
         <div className="container">
             <Head>
                 <title>Major League Forecasting</title>
                 <link rel="icon" href="/favicon.ico"/>
                 <link rel="preconnect" href="https://fonts.gstatic.com"/>
-                <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet"/>
+                <link href="https://fonts.googleapis.com/css2?family=Bevan&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@600&display=swap" rel="stylesheet" />
             </Head>
@@ -45,13 +51,14 @@ export default function Home({transactions, rawFileContents}) {
                         <span className="header-title-yellow">Forecasting</span>
                     </h1>
                 </header>
-                <div className="transactions">
-                    {transactions.map(transaction => (transaction.Amount &&
-                        <Transaction
-                            date={transaction.Date}
-                            amount={transaction.Amount}
-                            merchant={transaction.Description}
-                            key={`${transaction.Date}-${transaction.Amount}-${Math.random()}`}
+                <div className="forecasts">
+                    {weather.daily.map(forecast => (
+                        <Forecast
+                            day={forecast.dt}
+                            minTemp={forecast.temp.min}
+                            maxTemp={forecast.temp.max}
+                            weather={forecast.weather[0]}
+                            key={forecast.dt}
                         />
                     ))}
                 </div>
@@ -92,6 +99,7 @@ export default function Home({transactions, rawFileContents}) {
                 z-index: 1000;
                 background: #f9f9f9;
                 border-bottom: 4px solid black;
+                font-family: 'Bevan', cursive;
               }
 
               header h1 {
@@ -101,7 +109,7 @@ export default function Home({transactions, rawFileContents}) {
                 margin: 20px 0 12px 0;
               }
               
-              .transactions {
+              .forecasts {
                   font-family: 'Roboto', sans-serif;
               }
 
@@ -121,7 +129,10 @@ export default function Home({transactions, rawFileContents}) {
               body {
                 padding: 0;
                 margin: 0;
-                font-family: 'Luckiest Guy', cursive;
+              }
+              
+              body {
+                background: #94e0f1;
               }
 
               * {
@@ -132,26 +143,36 @@ export default function Home({transactions, rawFileContents}) {
     )
 }
 
-function Transaction({date, amount, merchant}) {
+function Forecast({day, minTemp, maxTemp, weather}) {
     return (
         <>
-            <div className={["transaction", amount >= 0 ? "income" : "expense"].join(" ")}>
-                <div className="merchant">{merchant}</div>
-                <div className="date">{date}</div>
-                <div className="amount">{amount.toFixed(2)}</div>
+            <div className="forecast">
+                <div className="day">{convertDayNumberToWord(new Date(day * 1000).getDay())}</div>
+                <div className="temp">min {formatTemp(minTemp)} | max {formatTemp(maxTemp)}</div>
+                <div className="weather">
+                    <WeatherIcon
+                        weatherCode={weather.icon}
+                        weatherDescription={weather.description}
+                    />
+                </div>
             </div>
 
             <style jsx>{`
-                .transaction {
+                .forecast {
                     display: grid;
-                    grid-template-areas: "merchant amount"
-                                         "date     amount";
+                    grid-template-areas: "day  weather"
+                                         "temp weather";
                     grid-template-columns: 1fr 100px;
                     text-align: left;
                     position: relative;
+                    width: 100vw;
                 }
                 
-                .transaction::after {
+                .forecast:nth-child(2n) {
+                    background: #76cfe4;
+                }
+                
+                .forecast::after {
                     content: '';
                     display: block;
                     height: 2px;
@@ -162,35 +183,44 @@ function Transaction({date, amount, merchant}) {
                     bottom: 0;
                 }
                 
-                .transaction.income {
-                    color: #2d6200;
-                    background: #e9fae9;
+                .day {
+                    grid-area: day;
+                    padding: 12px 6px 3px 36px;
+                    font-weight: 600;
                 }
                 
-                .transaction.expense {
-                    color: #430707;
-                    background: #fcf3f3;
+                .temp {
+                    grid-area: temp;
+                    padding: 3px 6px 12px 36px;
                 }
                 
-                .merchant {
-                    grid-area: merchant;
-                    padding: 12px 6px 3px 16px;
-                }
-                
-                .date {
-                    grid-area: date;
-                    padding: 3px 6px 12px 16px;
-                }
-                
-                .amount {
-                    grid-area: amount;
+                .weather {
+                    grid-area: weather;
                     display: flex;
                     align-items: center;
                     justify-content: flex-end;
-                    padding: 6px 16px 6px 6px;
+                    padding: 6px 36px 6px 6px;
                     font-family: 'Roboto Mono', monospace;
                     font-weight: 600;
                 }
+            `}</style>
+        </>
+    )
+}
+
+function WeatherIcon({ weatherCode, weatherDescription }) {
+    return (
+        <>
+            <img
+                src={`https://openweathermap.org/img/wn/${weatherCode}@2x.png`}
+                alt={weatherDescription}
+                title={weatherDescription}
+                className="weather-icon"
+            />
+            <style jsx>{`
+                .weather-icon {
+                    width: 50px;
+                }            
             `}</style>
         </>
     )
