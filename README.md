@@ -1,6 +1,6 @@
 # Major League Forecasting
 
-Deployed at https://major-league-forecasting.vercel.app/
+Deployed at https://mlh-forecasting.vercel.app/
 
 Example weather app, created for MLH Local Hack Day: Share 2021.
 
