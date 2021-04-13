@@ -2,15 +2,15 @@ import Head from 'next/head'
 import { convertDayNumberToWord, formatTemp } from '../components/utils'
 
 export async function getServerSideProps() {
-    // https://api.openweathermap.org/data/2.5/onecall?lat=51.5013715344381&lon=-0.14184897815474495&appid=f3d178f07e3018dd1eab495368872fc9&units=metric&exclude=hourly,minutely
+    // https://api.openweathermap.org/data/2.5/onecall?lat=10.002102997388837&lon=76.27477559240657&appid=155b974487630eaadda1e81abc4f803b&units=metric&exclude=hourly,minutely
 
     const baseURL = "https://api.openweathermap.org/data/2.5/onecall";
     const searchParams = new URLSearchParams();
 
     const apiOptions = {
-        lat: "51.5013715344381",
-        lon: "-0.14184897815474495",
-        apiKey: "f3d178f07e3018dd1eab495368872fc9",
+        lat: "10.002102997388837",
+        lon: "76.27477559240657",
+        apiKey: "155b974487630eaadda1e81abc4f803b",
         units: "metric",
         exclude: "hourly,minutely"
     }
